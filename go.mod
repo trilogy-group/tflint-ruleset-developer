@@ -1,6 +1,6 @@
-module github.com/prasheel-ti/tflint-ruleset-template-developer
+module github.com/terraform-linters/tflint-ruleset-template
 
-go 1.13
+go 1.18
 
 require (
 	github.com/hashicorp/terraform-json v0.14.0
