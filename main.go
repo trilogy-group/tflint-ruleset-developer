@@ -47,7 +47,7 @@ func readTagFile(fileName string) (map[string]string, error) {
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		items := strings.Split(line, ":") //items[0] -> tag items[1] -> AWSID
+		items := strings.Split(line, "->") //items[0] -> tag items[1] -> AWSID
 		tagMap[items[0]] = items[1]
 	}
 	return tagMap, nil

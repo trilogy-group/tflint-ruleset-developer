@@ -2,8 +2,8 @@ package rules
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
-
 	"github.com/terraform-linters/tflint-plugin-sdk/hclext"
 	"github.com/terraform-linters/tflint-plugin-sdk/tflint"
 )
@@ -78,11 +78,33 @@ func (r *ReccomendationFlagRule) Check(runner tflint.Runner) error {
 					Attributes: schema,
 				},
 			},
+			{
+				Type:       "module",
+				LabelNames: []string{"local_name"},
+				Body: &hclext.BodySchema{
+					Attributes: schema,
+				},
+			},
 		},
 	}, nil)
 	if err != nil {
 		return err
 	}
+	// res, err1 := runner.GetModuleContent(&hclext.BodySchema{
+	// 	Blocks: []hclext.BlockSchema{
+	// 		{
+	// 			Type:       "module",
+	// 			LabelNames: []string{"local_name"},
+	// 			Body: &hclext.BodySchema{
+	// 				Attributes: schema,
+	// 			},
+	// 		},
+	// 	},
+	// }, nil)
+	// if err1 != nil {
+	// 	return err
+	// }
+
 	for _, module := range resources.Blocks {
 		tags, exists := module.Body.Attributes["tags"]
 		if !exists {
@@ -119,34 +141,47 @@ func (r *ReccomendationFlagRule) Check(runner tflint.Runner) error {
 			)
 			continue
 		}
-		AWS_Strip := strings.Trim(AWSID, "\n")
-		AWSTrim := strings.Trim(AWS_Strip, `"`)
-		reccoforID := r.AttributeRecco[AWSTrim]
-		for attributeType, attributeValue := range reccoforID {
-			if attributeType == "NoAttributeMarker" {
-				runner.EmitIssue(
-					r,
-					fmt.Sprintf("Description: \"%s\"", attributeValue),
-					module.DefRange,
-				)
+		AWSIDs := []string{AWSID}
+		for i := 1; ; i++ {
+			yorTrace := yorTraceTrim + "$" + strconv.Itoa(i)
+			AWSID, exists = r.TagToID[yorTrace]
+			if !exists {
+				break
 			} else {
-				attributeTerraform, existsAttribute := module.Body.Attributes[attributeType]
-				if !existsAttribute {
+				AWSIDs = append(AWSIDs, AWSID)
+			}
+		}
+
+		for _, AWSID := range AWSIDs {
+			AWS_Strip := strings.Trim(AWSID, "\n")
+			AWSTrim := strings.Trim(AWS_Strip, `"`)
+			reccoforID := r.AttributeRecco[AWSTrim]
+			for attributeType, attributeValue := range reccoforID {
+				if attributeType == "NoAttributeMarker" {
 					runner.EmitIssue(
 						r,
-						fmt.Sprintf("Reduce cost by setting the value of attribute \"%s\" to \"%s\"", attributeType, attributeValue),
+						fmt.Sprintf("Description: \"%s\"", attributeValue),
 						module.DefRange,
 					)
-					continue
-				}
-				var extractAttribute string
-				runner.EvaluateExpr(attributeTerraform.Expr, &extractAttribute, nil)
-				if extractAttribute != attributeValue {
-					runner.EmitIssue(
-						r,
-						fmt.Sprintf("Reduce cost by setting this value to \"%s\"", attributeValue),
-						attributeTerraform.Expr.Range(),
-					)
+				} else {
+					attributeTerraform, existsAttribute := module.Body.Attributes[attributeType]
+					if !existsAttribute {
+						runner.EmitIssue(
+							r,
+							fmt.Sprintf("Reduce cost by setting the value of attribute \"%s\" to \"%s\"", attributeType, attributeValue),
+							module.DefRange,
+						)
+						continue
+					}
+					var extractAttribute string
+					runner.EvaluateExpr(attributeTerraform.Expr, &extractAttribute, nil)
+					if extractAttribute != attributeValue {
+						runner.EmitIssue(
+							r,
+							fmt.Sprintf("Reduce cost by setting this value to \"%s\"", attributeValue),
+							attributeTerraform.Expr.Range(),
+						)
+					}
 				}
 			}
 		}
