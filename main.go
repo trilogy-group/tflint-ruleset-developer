@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 
 	"github.com/terraform-linters/tflint-plugin-sdk/plugin"
@@ -56,19 +57,37 @@ func readTagFile(fileName string) (map[string]string, error) {
 func main() {
 	reccosFileName := os.Getenv("ReccosMapFile")
 	tagFileName := os.Getenv("TagsMapFile") //both of these environment variables would have been set by the orchestrator
-	currPWD, err := exec.Command("pwd").Output()
-	if err != nil {
-		//Add error log
-		panic(err) //system crash
+	currPWDStrip := ""
+	reccosFilePath := ""
+	tagFilePath := ""
+	if runtime.GOOS == "windows" {
+		currPWD, err := exec.Command("powershell", "-NoProfile", "(pwd).path").Output()
+		if err != nil {
+			//Add error log
+			panic(err) //system crash
+		}
+		currPWDStrip = strings.Trim(string(currPWD), "\n")
+		currPWDStrip = strings.TrimRight(currPWDStrip, "\r")
+		reccosFilePath = currPWDStrip + "\\" + reccosFileName
+		tagFilePath = currPWDStrip + "\\" + tagFileName
+	} else {
+		currPWD, err := exec.Command("pwd").Output()
+		if err != nil {
+			//Add error log
+			panic(err) //system crash
+		}
+		currPWDStrip = strings.Trim(string(currPWD), "\n")
+		reccosFilePath = currPWDStrip + "/" + reccosFileName
+		tagFilePath = currPWDStrip + "/" + tagFileName
 	}
-	currPWDStrip := strings.Trim(string(currPWD), "\n") //there is a new line char by defualt that needs to be trimmed
-	reccosFilePath := currPWDStrip + "/" + reccosFileName
+	//there is a new line char by defualt that needs to be trimmed
+
 	reccos, errR := readReccosFile(reccosFilePath)
 	if errR != nil {
 		//Add error log
 		panic(errR) //system fail
 	}
-	tagFilePath := currPWDStrip + "/" + tagFileName
+
 	tagToID, errT := readTagFile(tagFilePath)
 	if errT != nil {
 		//Add err log
