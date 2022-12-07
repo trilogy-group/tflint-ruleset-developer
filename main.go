@@ -67,7 +67,7 @@ func main() {
 			panic(err) //system crash
 		}
 		currPWDStrip = strings.Trim(string(currPWD), "\n")
-		currPWDStrip = strings.TrimRight(currPWDStrip, "\r")
+		currPWDStrip = strings.TrimSuffix(currPWDStrip, "\r")
 		reccosFilePath = currPWDStrip + "\\" + reccosFileName
 		tagFilePath = currPWDStrip + "\\" + tagFileName
 	} else {
