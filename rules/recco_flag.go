@@ -45,7 +45,7 @@ func (r *ReccomendationFlagRule) Link() string {
 	return ""
 }
 
-//gives the list of attributes that the runner needs to extract
+// gives the list of attributes that the runner needs to extract
 func (r *ReccomendationFlagRule) getAttributeList() []string {
 	var attributes []string
 	for _, reccos := range r.AttributeRecco {
@@ -90,23 +90,12 @@ func (r *ReccomendationFlagRule) Check(runner tflint.Runner) error {
 	if err != nil {
 		return err
 	}
-	// res, err1 := runner.GetModuleContent(&hclext.BodySchema{
-	// 	Blocks: []hclext.BlockSchema{
-	// 		{
-	// 			Type:       "module",
-	// 			LabelNames: []string{"local_name"},
-	// 			Body: &hclext.BodySchema{
-	// 				Attributes: schema,
-	// 			},
-	// 		},
-	// 	},
-	// }, nil)
-	// if err1 != nil {
-	// 	return err
-	// }
-
 	for _, module := range resources.Blocks {
 		tags, exists := module.Body.Attributes["tags"]
+		var resource_name string = "In "+module.Type+" "+module.Labels[0]
+		if module.Type=="resource" {
+			resource_name = resource_name + ":" + module.Labels[1]
+		}
 		if !exists {
 			_, ok := r.Taggable[module.Labels[0]]
 			if ok {
@@ -160,7 +149,7 @@ func (r *ReccomendationFlagRule) Check(runner tflint.Runner) error {
 				if attributeType == "NoAttributeMarker" {
 					runner.EmitIssue(
 						r,
-						fmt.Sprintf("Description: \"%s\"", attributeValue),
+						fmt.Sprintf("%s: Description: \"%s\"", resource_name, attributeValue),
 						module.DefRange,
 					)
 				} else {
@@ -168,7 +157,7 @@ func (r *ReccomendationFlagRule) Check(runner tflint.Runner) error {
 					if !existsAttribute {
 						runner.EmitIssue(
 							r,
-							fmt.Sprintf("Reduce cost by setting the value of attribute \"%s\" to \"%s\"", attributeType, attributeValue),
+							fmt.Sprintf("%s: Reduce cost by setting the value of attribute \"%s\" to \"%s\"", resource_name, attributeType, attributeValue),
 							module.DefRange,
 						)
 						continue
@@ -178,7 +167,7 @@ func (r *ReccomendationFlagRule) Check(runner tflint.Runner) error {
 					if extractAttribute != attributeValue {
 						runner.EmitIssue(
 							r,
-							fmt.Sprintf("Reduce cost by setting this value to \"%s\"", attributeValue),
+							fmt.Sprintf("%s: Reduce cost by setting this value to \"%s\"", resource_name, attributeValue),
 							attributeTerraform.Expr.Range(),
 						)
 					}

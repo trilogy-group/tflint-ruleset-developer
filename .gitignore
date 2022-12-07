@@ -1,4 +1,4 @@
 .vscode
 terraformCode
 dist
-pass.sh
+script.sh
