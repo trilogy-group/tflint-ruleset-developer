@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"os"
 	"os/exec"
 	"runtime"
@@ -24,6 +25,9 @@ func readReccosFile(fileName string) (map[string]map[string][]string, error) {
 	for scanner.Scan() {
 		line := scanner.Text()
 		items := strings.Split(line, ":") //items[0] -> AWSID, items[1] -> attributeType items[2] -> attributeValue
+		if len(items)<2 {
+			return reccosMap, errors.New("Corrupt Recommendation")
+		}
 		innerMap, exists := reccosMap[items[0]]
 		if !exists {
 			tempMap := make(map[string][]string) // a new map will have to be made as a map with the given AWSID does not exist
