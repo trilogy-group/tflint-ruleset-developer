@@ -12,12 +12,12 @@ import (
 type ReccomendationFlagRule struct {
 	tflint.DefaultRule
 	TagToID        map[string]string
-	AttributeRecco map[string]map[string]string
+	AttributeRecco map[string]map[string][]string
 	Taggable       map[string]bool
 }
 
 // Constructor for maaking the rule struct
-func NewReccomendationFlagRule(tagIDMap map[string]string, reccoMap map[string]map[string]string, taggableMap map[string]bool) *ReccomendationFlagRule {
+func NewReccomendationFlagRule(tagIDMap map[string]string, reccoMap map[string]map[string][]string, taggableMap map[string]bool) *ReccomendationFlagRule {
 	return &ReccomendationFlagRule{
 		TagToID:        tagIDMap,
 		AttributeRecco: reccoMap,
@@ -146,30 +146,32 @@ func (r *ReccomendationFlagRule) Check(runner tflint.Runner) error {
 			AWSTrim := strings.Trim(AWS_Strip, `"`)
 			reccoforID := r.AttributeRecco[AWSTrim]
 			for attributeType, attributeValue := range reccoforID {
-				if attributeType == "NoAttributeMarker" {
-					runner.EmitIssue(
-						r,
-						fmt.Sprintf("%s: Description: \"%s\"", resource_name, attributeValue),
-						module.DefRange,
-					)
-				} else {
-					attributeTerraform, existsAttribute := module.Body.Attributes[attributeType]
-					if !existsAttribute {
+				for _, recco := range attributeValue {
+					if attributeType == "NoAttributeMarker" {
 						runner.EmitIssue(
 							r,
-							fmt.Sprintf("%s: Reduce cost by setting the value of attribute \"%s\" to \"%s\"", resource_name, attributeType, attributeValue),
+							fmt.Sprintf("%s: Description: \"%s\"", resource_name, recco),
 							module.DefRange,
 						)
-						continue
-					}
-					var extractAttribute string
-					runner.EvaluateExpr(attributeTerraform.Expr, &extractAttribute, nil)
-					if extractAttribute != attributeValue {
-						runner.EmitIssue(
-							r,
-							fmt.Sprintf("%s: Reduce cost by setting this value to \"%s\"", resource_name, attributeValue),
-							attributeTerraform.Expr.Range(),
-						)
+					} else {
+						attributeTerraform, existsAttribute := module.Body.Attributes[attributeType]
+						if !existsAttribute {
+							runner.EmitIssue(
+								r,
+								fmt.Sprintf("%s: Reduce cost by setting the value of attribute \"%s\" to \"%s\"", resource_name, attributeType, recco),
+								module.DefRange,
+							)
+							continue
+						}
+						var extractAttribute string
+						runner.EvaluateExpr(attributeTerraform.Expr, &extractAttribute, nil)
+						if extractAttribute != recco {
+							runner.EmitIssue(
+								r,
+								fmt.Sprintf("%s: Reduce cost by setting this value to \"%s\"", resource_name, recco),
+								attributeTerraform.Expr.Range(),
+							)
+						}
 					}
 				}
 			}
