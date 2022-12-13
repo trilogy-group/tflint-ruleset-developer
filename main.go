@@ -45,8 +45,8 @@ func readReccosFile(fileName string) (map[string]map[string][]string, error) {
 	return reccosMap, nil
 }
 
-func readTagFile(fileName string) (map[string]string, error) {
-	tagMap := map[string]string{}
+func readTagFile(fileName string) (map[string]map[string]string, error) {
+	tagMap := map[string]map[string]string{}
 	file, err := os.Open(fileName)
 	if err != nil {
 		return tagMap, err //System fail
@@ -57,7 +57,14 @@ func readTagFile(fileName string) (map[string]string, error) {
 	for scanner.Scan() {
 		line := scanner.Text()
 		items := strings.Split(line, "->") //items[0] -> tag items[1] -> AWSID
-		tagMap[items[0]] = items[1]
+		if len(items)<3 {
+			return tagMap, errors.New("Invalid yor_tag in resource")
+		}
+		_, exists := tagMap[items[0]]
+		if (!exists) {
+			tagMap[items[0]] = map[string]string{}
+		}
+		tagMap[items[0]][items[1]] = items[2]
 	}
 	return tagMap, nil
 }
