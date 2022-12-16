@@ -2,7 +2,6 @@ package rules
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/terraform-linters/tflint-plugin-sdk/hclext"
