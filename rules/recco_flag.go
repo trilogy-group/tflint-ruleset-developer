@@ -80,13 +80,13 @@ func (r *ReccomendationFlagRule) flagRecommendations(runner tflint.Runner, recco
 	for attributeType, attributeValue := range reccoforID {
 		for _, recco := range attributeValue {
 			// '$' is present at start if tagging needs to done at start of file
-			if recco[0]=='$' {
+			if attributeType == "GlobalAttributeMarker" {
 				x := currentBlock.DefRange
-				x.Start = hcl.Pos{Line: 1, Column: 1, Byte: 1}
-				x.End = hcl.Pos{Line: 1, Column: 3, Byte: 1}
+				x.Start = hcl.Pos{Line: 1, Column: 1, Byte: 0}
+				x.End = hcl.Pos{Line: 1, Column: 3, Byte: 0}
 				runner.EmitIssue(
 					r,
-					fmt.Sprintf("%s: Description: \"%s\"", blockName, recco[1:]),
+					fmt.Sprintf("%s: Description: \"%s\"", blockName, recco),
 					x,
 				)
 				continue
