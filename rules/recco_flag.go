@@ -12,13 +12,22 @@ import (
 type ReccomendationFlagRule struct {
 	tflint.DefaultRule
 	TagToID        map[string]map[string]string
-	AttributeRecco map[string]map[string][]string
+	AttributeRecco map[string]Recommendation
 	Taggable       map[string]bool
 	BlockLevels	   [][]string // BlockLevels store heirarchy of blocks. BlockLevels[0] > BlockLevels[1]
 }
 
+type IdealAttributes struct {
+	AttributeType  string `json:"Attribute Type"`
+	AttributeValue string `json:"Attribute Value"`
+}
+
+type Recommendation struct {
+	Recommendation map[string][]IdealAttributes
+}
+
 // Constructor for maaking the rule struct
-func NewReccomendationFlagRule(tagIDMap map[string]map[string]string, reccoMap map[string]map[string][]string, taggableMap map[string]bool) *ReccomendationFlagRule {
+func NewReccomendationFlagRule(tagIDMap map[string]map[string]string, reccoMap map[string]Recommendation, taggableMap map[string]bool) *ReccomendationFlagRule {
 	return &ReccomendationFlagRule{
 		TagToID:        tagIDMap,
 		AttributeRecco: reccoMap,
@@ -51,7 +60,7 @@ func (r *ReccomendationFlagRule) Link() string {
 func (r *ReccomendationFlagRule) getAttributeList() []string {
 	var attributes []string
 	for _, reccos := range r.AttributeRecco {
-		for attribute := range reccos {
+		for attribute := range reccos.Recommendation {
 			if attribute == "NoAttributeMarker" {
 				continue
 			}
@@ -75,9 +84,9 @@ func (r *ReccomendationFlagRule) getAttributeList() []string {
 	return attributes
 }
 
-func (r *ReccomendationFlagRule) flagRecommendations(runner tflint.Runner, reccoforID map[string][]string, currentBlock *hclext.Block, blockName string) {
-	for attributeType, attributeValue := range reccoforID {
-		for _, recco := range attributeValue {
+func (r *ReccomendationFlagRule) flagRecommendations(runner tflint.Runner, reccoforID Recommendation, currentBlock *hclext.Block, blockName string) {
+	for attributeType, allRecommendations := range reccoforID.Recommendation {
+		for _, recco := range allRecommendations {
 			// '$' is present at start if tagging needs to done at start of file
 			if attributeType == "GlobalAttributeMarker" {
 				x := currentBlock.DefRange
@@ -85,7 +94,7 @@ func (r *ReccomendationFlagRule) flagRecommendations(runner tflint.Runner, recco
 				x.End = hcl.Pos{Line: 1, Column: 3, Byte: 0}
 				runner.EmitIssue(
 					r,
-					fmt.Sprintf("%s: Description: \"%s\"", blockName, recco),
+					fmt.Sprintf("%s: Description: \"%s\"", blockName, recco.AttributeValue),
 					x,
 				)
 				continue
@@ -93,7 +102,7 @@ func (r *ReccomendationFlagRule) flagRecommendations(runner tflint.Runner, recco
 			if attributeType == "NoAttributeMarker" {
 				runner.EmitIssue(
 					r,
-					fmt.Sprintf("%s: Description: \"%s\"", blockName, recco),
+					fmt.Sprintf("%s: Description: \"%s\"", blockName, recco.AttributeValue),
 					currentBlock.DefRange,
 				)
 			} else {
@@ -103,7 +112,7 @@ func (r *ReccomendationFlagRule) flagRecommendations(runner tflint.Runner, recco
 					// required attribute doesn't exists in block
 					runner.EmitIssue(
 						r,
-						fmt.Sprintf("%s: Reduce cost by setting the value of attribute \"%s\" to \"%s\"", blockName, attributeType, recco),
+						fmt.Sprintf("%s: Reduce cost by setting the value of attribute \"%s\" to \"%s\"", blockName, attributeType, recco.AttributeValue),
 						currentBlock.DefRange,
 					)
 					continue
@@ -111,10 +120,10 @@ func (r *ReccomendationFlagRule) flagRecommendations(runner tflint.Runner, recco
 				// required attribute exists in block
 				var extractAttribute string
 				runner.EvaluateExpr(attributeTerraform.Expr, &extractAttribute, nil)
-				if extractAttribute != recco {
+				if extractAttribute != recco.AttributeValue {
 					runner.EmitIssue(
 						r,
-						fmt.Sprintf("%s: Reduce cost by setting this value to \"%s\"", blockName, recco),
+						fmt.Sprintf("%s: Reduce cost by setting this value to \"%s\"", blockName, recco.AttributeValue),
 						attributeTerraform.Expr.Range(),
 					)
 				}
