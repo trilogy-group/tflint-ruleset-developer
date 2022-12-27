@@ -10,10 +10,11 @@ import (
 	"github.com/terraform-linters/tflint-plugin-sdk/plugin"
 	"github.com/terraform-linters/tflint-plugin-sdk/tflint"
 	"github.com/terraform-linters/tflint-ruleset-template/rules"
+	"github.com/trilogy-group/cloudfix-linter-developer/cloudfixIntegration"
 )
 
-func readReccosFile(fileName string) (map[string]rules.Recommendation, error) {
-	reccosMap := map[string]rules.Recommendation{}
+func readReccosFile(fileName string) (map[string]cloudfixIntegration.Recommendation, error) {
+	reccosMap := map[string]cloudfixIntegration.Recommendation{}
 	data, err := os.ReadFile(fileName)
 	if err != nil {
 		return reccosMap, err
