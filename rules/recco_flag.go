@@ -20,6 +20,7 @@ type ReccomendationFlagRule struct {
 type IdealAttributes struct {
 	AttributeType  string `json:"Attribute Type"`
 	AttributeValue string `json:"Attribute Value"`
+	EnableQuickFix bool   `json:"EnableQuickFix"`
 }
 
 type Recommendation struct {
@@ -118,14 +119,26 @@ func (r *ReccomendationFlagRule) flagRecommendations(runner tflint.Runner, recco
 					continue
 				}
 				// required attribute exists in block
-				var extractAttribute string
-				runner.EvaluateExpr(attributeTerraform.Expr, &extractAttribute, nil)
-				if extractAttribute != recco.AttributeValue {
-					runner.EmitIssue(
-						r,
-						fmt.Sprintf("%s: Reduce cost by setting this value to \"%s\"", blockName, recco.AttributeValue),
-						attributeTerraform.Expr.Range(),
-					)
+				if recco.EnableQuickFix==true {
+					var extractAttribute string
+					runner.EvaluateExpr(attributeTerraform.Expr, &extractAttribute, nil)
+					if extractAttribute != recco.AttributeValue {
+						runner.EmitIssue(
+							r,
+							fmt.Sprintf("%s: Reduce cost by setting this value to \"%s\"", blockName, recco.AttributeValue),
+							attributeTerraform.Expr.Range(),
+						)
+					}
+				} else {
+					var extractAttribute string
+					runner.EvaluateExpr(attributeTerraform.Expr, &extractAttribute, nil)
+					if extractAttribute != recco.AttributeValue {
+						runner.EmitIssue(
+							r,
+							fmt.Sprintf("%s: Reduce cost by setting the value to \"%s\"", blockName, recco.AttributeValue),
+							attributeTerraform.Expr.Range(),
+						)
+					}
 				}
 			}
 		}
