@@ -19,7 +19,6 @@ type ReccomendationFlagRule struct {
 	BlockLevels        [][]string // BlockLevels store heirarchy of blocks. BlockLevels[0] > BlockLevels[1]
 	GlobalAttributeMap map[string]hcl.Range
 }
-
 // Constructor for maaking the rule struct
 func NewReccomendationFlagRule(tagIDMap map[string]map[string][]string, reccoMap map[string]cloudfixIntegration.Recommendation, taggableMap map[string]bool) *ReccomendationFlagRule {
 	return &ReccomendationFlagRule{
