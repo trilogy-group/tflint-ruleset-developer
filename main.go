@@ -1,8 +1,7 @@
 package main
 
 import (
-	"bufio"
-	"errors"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"runtime"
@@ -11,60 +10,31 @@ import (
 	"github.com/terraform-linters/tflint-plugin-sdk/plugin"
 	"github.com/terraform-linters/tflint-plugin-sdk/tflint"
 	"github.com/terraform-linters/tflint-ruleset-template/rules"
+	"github.com/trilogy-group/cloudfix-linter-developer/cloudfixIntegration"
 )
 
-func readReccosFile(fileName string) (map[string]map[string][]string, error) {
-	reccosMap := map[string]map[string][]string{}
-	file, err := os.Open(fileName)
+func readReccosFile(fileName string) (map[string]cloudfixIntegration.Recommendation, error) {
+	reccosMap := map[string]cloudfixIntegration.Recommendation{}
+	data, err := os.ReadFile(fileName)
 	if err != nil {
 		return reccosMap, err
 	}
-
-	scanner := bufio.NewScanner(file)
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		items := strings.Split(line, "->") 
-		if len(items) < 2 {
-			return reccosMap, errors.New("Corrupt Recommendation")
-		}
-		innerMap, exists := reccosMap[items[0]]
-		if !exists {
-			tempMap := make(map[string][]string) // a new map will have to be made as a map with the given AWSID does not exist
-			for i := 2; i < len(items); i++ {
-				tempMap[items[1]] = append(tempMap[items[1]], items[i])
-			}
-			reccosMap[items[0]] = tempMap
-		} else {
-			for i := 2; i < len(items); i++ {
-				innerMap[items[1]] = append(innerMap[items[1]], items[i])
-			}
-			reccosMap[items[0]] = innerMap
-		}
+	err = json.Unmarshal(data, &reccosMap)
+	if err != nil {
+		return reccosMap, err
 	}
 	return reccosMap, nil
 }
 
-func readTagFile(fileName string) (map[string]map[string]string, error) {
-	tagMap := map[string]map[string]string{}
-	file, err := os.Open(fileName)
+func readTagFile(fileName string) (map[string]map[string][]string, error) {
+	tagMap := map[string]map[string][]string{}
+	data, err := os.ReadFile(fileName)
 	if err != nil {
-		return tagMap, err //System fail
+		return tagMap, err
 	}
-
-	scanner := bufio.NewScanner(file)
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		items := strings.Split(line, "->") //items[0] -> tag items[1] -> AWSID
-		if len(items)<3 {
-			return tagMap, errors.New("Invalid yor_tag in resource")
-		}
-		_, exists := tagMap[items[0]]
-		if (!exists) {
-			tagMap[items[0]] = map[string]string{}
-		}
-		tagMap[items[0]][items[1]] = items[2]
+	err = json.Unmarshal(data, &tagMap)
+	if err != nil {
+		return tagMap, err
 	}
 	return tagMap, nil
 }
