@@ -3,27 +3,31 @@ package rules
 import (
 	"fmt"
 	"strings"
+
 	"github.com/hashicorp/hcl/v2"
 	"github.com/terraform-linters/tflint-plugin-sdk/hclext"
 	"github.com/terraform-linters/tflint-plugin-sdk/tflint"
+	"github.com/trilogy-group/cloudfix-linter-developer/cloudfixIntegration"
 )
 
 // ReccomendationFlagRule flags of cloudifx reccommendations
 type ReccomendationFlagRule struct {
 	tflint.DefaultRule
-	TagToID        map[string]map[string]string
-	AttributeRecco map[string]map[string][]string
-	Taggable       map[string]bool
-	BlockLevels	   [][]string // BlockLevels store heirarchy of blocks. BlockLevels[0] > BlockLevels[1]
+	TagToID            map[string]map[string][]string
+	AttributeRecco     map[string]cloudfixIntegration.Recommendation
+	Taggable           map[string]bool
+	BlockLevels        [][]string // BlockLevels store heirarchy of blocks. BlockLevels[0] > BlockLevels[1]
+	GlobalAttributeMap map[string]hcl.Range
 }
 
 // Constructor for maaking the rule struct
-func NewReccomendationFlagRule(tagIDMap map[string]map[string]string, reccoMap map[string]map[string][]string, taggableMap map[string]bool) *ReccomendationFlagRule {
+func NewReccomendationFlagRule(tagIDMap map[string]map[string][]string, reccoMap map[string]cloudfixIntegration.Recommendation, taggableMap map[string]bool) *ReccomendationFlagRule {
 	return &ReccomendationFlagRule{
-		TagToID:        tagIDMap,
-		AttributeRecco: reccoMap,
-		Taggable:       taggableMap,
-		BlockLevels: [][]string{},
+		TagToID:            tagIDMap,
+		AttributeRecco:     reccoMap,
+		Taggable:           taggableMap,
+		BlockLevels:        [][]string{},
+		GlobalAttributeMap: map[string]hcl.Range{},
 	}
 }
 
@@ -51,7 +55,7 @@ func (r *ReccomendationFlagRule) Link() string {
 func (r *ReccomendationFlagRule) getAttributeList() []string {
 	var attributes []string
 	for _, reccos := range r.AttributeRecco {
-		for attribute := range reccos {
+		for attribute := range reccos.Recommendation {
 			if attribute == "NoAttributeMarker" {
 				continue
 			}
@@ -59,10 +63,10 @@ func (r *ReccomendationFlagRule) getAttributeList() []string {
 			blocksList := strings.Split(attribute, ".")
 			// Add blocks in heirarchy of nestedness
 			for index, block := range blocksList {
-				if index == (len(blocksList)-1) {
+				if index == (len(blocksList) - 1) {
 					break
 				}
-				if len(r.BlockLevels)<=index {
+				if len(r.BlockLevels) <= index {
 					r.BlockLevels = append(r.BlockLevels, []string{})
 				}
 				r.BlockLevels[index] = append(r.BlockLevels[index], block)
@@ -75,25 +79,18 @@ func (r *ReccomendationFlagRule) getAttributeList() []string {
 	return attributes
 }
 
-func (r *ReccomendationFlagRule) flagRecommendations(runner tflint.Runner, reccoforID map[string][]string, currentBlock *hclext.Block, blockName string) {
-	for attributeType, attributeValue := range reccoforID {
-		for _, recco := range attributeValue {
+func (r *ReccomendationFlagRule) flagRecommendations(runner tflint.Runner, reccoforID cloudfixIntegration.Recommendation, currentBlock *hclext.Block, blockName string) {
+
+	for attributeType, allRecommendations := range reccoforID.Recommendation {
+		for _, recco := range allRecommendations {
 			// '$' is present at start if tagging needs to done at start of file
 			if attributeType == "GlobalAttributeMarker" {
-				x := currentBlock.DefRange
-				x.Start = hcl.Pos{Line: 1, Column: 1, Byte: 0}
-				x.End = hcl.Pos{Line: 1, Column: 3, Byte: 0}
-				runner.EmitIssue(
-					r,
-					fmt.Sprintf("%s: Description: \"%s\"", blockName, recco),
-					x,
-				)
 				continue
 			}
 			if attributeType == "NoAttributeMarker" {
 				runner.EmitIssue(
 					r,
-					fmt.Sprintf("%s: Description: \"%s\"", blockName, recco),
+					fmt.Sprintf("%s: Description: \"%s\"", blockName, recco.AttributeValue),
 					currentBlock.DefRange,
 				)
 			} else {
@@ -103,18 +100,24 @@ func (r *ReccomendationFlagRule) flagRecommendations(runner tflint.Runner, recco
 					// required attribute doesn't exists in block
 					runner.EmitIssue(
 						r,
-						fmt.Sprintf("%s: Reduce cost by setting the value of attribute \"%s\" to \"%s\"", blockName, attributeType, recco),
+						fmt.Sprintf("%s: Reduce cost by setting the value of attribute \"%s\" to \"%s\"", blockName, attributeType, recco.AttributeValue),
 						currentBlock.DefRange,
 					)
 					continue
 				}
 				// required attribute exists in block
+				var descriptionMessage string
+				if recco.EnableQuickFix == true {
+					descriptionMessage = "Reduce cost by setting this value to"
+				} else {
+					descriptionMessage = "Reduce cost by setting the value to"
+				}
 				var extractAttribute string
 				runner.EvaluateExpr(attributeTerraform.Expr, &extractAttribute, nil)
-				if extractAttribute != recco {
+				if extractAttribute != recco.AttributeValue {
 					runner.EmitIssue(
 						r,
-						fmt.Sprintf("%s: Reduce cost by setting this value to \"%s\"", blockName, recco),
+						fmt.Sprintf("%s: %s \"%s\"", blockName, descriptionMessage,recco.AttributeValue),
 						attributeTerraform.Expr.Range(),
 					)
 				}
@@ -123,10 +126,10 @@ func (r *ReccomendationFlagRule) flagRecommendations(runner tflint.Runner, recco
 	}
 }
 
-func (r *ReccomendationFlagRule) getResourceMap(runner tflint.Runner, currentBlock *hclext.Block) (map[string]string, string, bool) {
-	var blockName string = currentBlock.Type+" "+currentBlock.Labels[0]
-	if currentBlock.Type=="resource" {
-		blockName += " "+currentBlock.Labels[1]
+func (r *ReccomendationFlagRule) getResourceMap(runner tflint.Runner, currentBlock *hclext.Block) (map[string][]string, string, bool) {
+	var blockName string = currentBlock.Type + " " + currentBlock.Labels[0]
+	if currentBlock.Type == "resource" {
+		blockName += " " + currentBlock.Labels[1]
 	}
 	// find tag variable in block
 	tags, exists := currentBlock.Body.Attributes["tags"]
@@ -175,6 +178,7 @@ func (r *ReccomendationFlagRule) getResourceMap(runner tflint.Runner, currentBlo
 
 func (r *ReccomendationFlagRule) scanModules(runner tflint.Runner, modules *hclext.BodyContent) {
 	// scan all modules in current file
+	var sampleModule *hclext.Block
 	for _, module := range modules.Blocks {
 		// get map of recommendations for current module
 		resourceMap, module_name, flagged := r.getResourceMap(runner, module)
@@ -184,7 +188,7 @@ func (r *ReccomendationFlagRule) scanModules(runner tflint.Runner, modules *hcle
 		// find all resources deployed by current module
 		resourceIDs := []string{}
 		for _, resourceID := range resourceMap {
-			resourceIDs = append(resourceIDs, resourceID)
+			resourceIDs = append(resourceIDs, resourceID...)
 		}
 		// emit issues for all resources
 		for _, resourceID := range resourceIDs {
@@ -195,11 +199,16 @@ func (r *ReccomendationFlagRule) scanModules(runner tflint.Runner, modules *hcle
 				r.flagRecommendations(runner, reccoforID, module, module_name)
 			}
 		}
+		sampleModule = module
+	}
+	if sampleModule != nil {
+		r.GlobalAttributeMap[sampleModule.DefRange.Filename] = sampleModule.DefRange
 	}
 }
 
 func (r *ReccomendationFlagRule) scanResources(runner tflint.Runner, resources *hclext.BodyContent) {
 	// scan all resources in current file
+	var sampleResource *hclext.Block
 	for _, resource := range resources.Blocks {
 		// get map of recommendations for current resource
 		resourceMap, resource_name, flagged := r.getResourceMap(runner, resource)
@@ -207,25 +216,63 @@ func (r *ReccomendationFlagRule) scanResources(runner tflint.Runner, resources *
 			continue
 		}
 		// find reccomendations specific to current resource as there may be multiple resources for yor_tag
-		resourceID, exists := resourceMap[resource.Labels[0]+"&"+resource.Labels[1]]
+		resourceIDs, exists := resourceMap[resource.Labels[0]+"&"+resource.Labels[1]]
 		if !exists {
 			continue
 		}
-		resourceStrip := strings.Trim(resourceID, "\n")
-		resourceTrim := strings.Trim(resourceStrip, `"`)
-		reccoforID := r.AttributeRecco[resourceTrim]
-		// emit issues for all recommendations
-		r.flagRecommendations(runner, reccoforID, resource, resource_name)
+		for _, resourceID := range resourceIDs {
+			resourceStrip := strings.Trim(resourceID, "\n")
+			resourceTrim := strings.Trim(resourceStrip, `"`)
+			reccoforID := r.AttributeRecco[resourceTrim]
+			// emit issues for all recommendations
+			r.flagRecommendations(runner, reccoforID, resource, resource_name)
+		}
+		sampleResource = resource
+	}
+	if sampleResource != nil {
+		r.GlobalAttributeMap[sampleResource.DefRange.Filename] = sampleResource.DefRange
 	}
 }
 
-func findAttribute(blocksList []string, index int, currentBlock *hclext.Block)(*hclext.Attribute, bool) {
-	if index == (len(blocksList)-1) {
+func (r *ReccomendationFlagRule) markGlobalAttributes(runner tflint.Runner) {
+	recomendationPassed := map[string]bool{}
+	for _, recommendation := range r.AttributeRecco {
+		globalRecommendations, present := recommendation.Recommendation["GlobalAttributeMarker"]
+		if !present {
+			continue
+		}
+		for _, recco := range globalRecommendations {
+			for _, fileRange := range r.GlobalAttributeMap {
+				fileName := fileRange.Filename
+				filePaths := strings.Split(fileName, "/")
+				if len(filePaths) > 1 {
+					continue
+				}
+				_, exists := recomendationPassed[fileRange.Filename+"$"+recco.AttributeValue]
+				if exists {
+					continue
+				}
+				fileRange.Start = hcl.Pos{Line: 1, Column: 1, Byte: 0}
+				fileRange.End = hcl.Pos{Line: 1, Column: 0, Byte: 0}
+				runner.EmitIssue(
+					r,
+					fmt.Sprintf("Description: \"%s\"", recco.AttributeValue),
+					fileRange,
+				)
+				recomendationPassed[fileRange.Filename+"$"+recco.AttributeValue] = true
+				continue
+			}
+		}
+	}
+}
+
+func findAttribute(blocksList []string, index int, currentBlock *hclext.Block) (*hclext.Attribute, bool) {
+	if index == (len(blocksList) - 1) {
 		v, b := currentBlock.Body.Attributes[blocksList[index]]
 		return v, b
 	}
 	blocksWithName := currentBlock.Body.Blocks.ByType()[blocksList[index]]
-	if len(blocksWithName)==0 {
+	if len(blocksWithName) == 0 {
 		return nil, false
 	}
 	return findAttribute(blocksList, index+1, blocksWithName[0])
@@ -238,8 +285,7 @@ func searchAttribute(attributeType string, currentBlock *hclext.Block) (*hclext.
 	return findAttribute(blocksList, 0, currentBlock)
 }
 
-
-func (r *ReccomendationFlagRule) resolveBlockRule(level int, schema []hclext.AttributeSchema) []hclext.BlockSchema{
+func (r *ReccomendationFlagRule) resolveBlockRule(level int, schema []hclext.AttributeSchema) []hclext.BlockSchema {
 	newSchema := []hclext.BlockSchema{}
 	// if all blocks are scanned then return
 	if level == len(r.BlockLevels) {
@@ -248,12 +294,12 @@ func (r *ReccomendationFlagRule) resolveBlockRule(level int, schema []hclext.Att
 	// create block of all types in currentBlockLevel
 	for _, blockName := range r.BlockLevels[level] {
 		childBlockSchema := r.resolveBlockRule(level+1, schema)
-		newSchema = append(newSchema, 
+		newSchema = append(newSchema,
 			hclext.BlockSchema{
 				Type: blockName,
 				Body: &hclext.BodySchema{
 					Attributes: schema,
-					Blocks: childBlockSchema,
+					Blocks:     childBlockSchema,
 				},
 			},
 		)
@@ -308,5 +354,6 @@ func (r *ReccomendationFlagRule) Check(runner tflint.Runner) error {
 	}
 	// emit issues for modules
 	r.scanModules(runner, modules)
+	r.markGlobalAttributes(runner)
 	return nil
 }
