@@ -122,8 +122,8 @@ github.com/stretchr/testify v1.7.0 h1:nwc3DEeHmmLAfoZucVR881uASk0Mfjw8xYJ99tb5Cc
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/terraform-linters/tflint-plugin-sdk v0.11.0 h1:SXgx5GVTLuPolMLbhH7/U8YDp26vIrF7bFpDalyYk8g=
 github.com/terraform-linters/tflint-plugin-sdk v0.11.0/go.mod h1:51sL8jOhqlNwCCzd5K2s88HiHRYjL4Rf+qPcZ/cApdc=
-github.com/trilogy-group/cloudfix-linter-developer v1.2.0 h1:QPWKGIx980geAEk1PuNexI27pm8RG2cD+S8fRYE0Wec=
-github.com/trilogy-group/cloudfix-linter-developer v1.2.0/go.mod h1:yxox7LuyjDBxQQRZ0iFBTkAfgqCpuwPx/XB1VMezfho=
+github.com/trilogy-group/cloudfix-linter-developer v1.3.0 h1:nFYIoc2aSJ8eWO7/T8Fic+wzlAgtCdTi4gnJoQvqvKM=
+github.com/trilogy-group/cloudfix-linter-developer v1.3.0/go.mod h1:yxox7LuyjDBxQQRZ0iFBTkAfgqCpuwPx/XB1VMezfho=
 github.com/vmihailenco/msgpack v3.3.3+incompatible/go.mod h1:fy3FlTQTDXWkZ7Bh6AcGMlsjHatGryHQYUTf1ShIgkk=
 github.com/vmihailenco/msgpack/v4 v4.3.12 h1:07s4sz9IReOgdikxLTKNbBdqDMLsjPKXwvCazn8G65U=
 github.com/vmihailenco/msgpack/v4 v4.3.12/go.mod h1:gborTTJjAo/GWTqqRjrLCn9pgNN+NXzzngzBKDPIqw4=

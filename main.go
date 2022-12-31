@@ -26,8 +26,9 @@ func readReccosFile(fileName string) (map[string]cloudfixIntegration.Recommendat
 	return reccosMap, nil
 }
 
-func readTagFile(fileName string) (map[string]map[string]string, error) {
-	tagMap := map[string]map[string]string{}
+
+func readTagFile(fileName string) (map[string]map[string][]string, error) {
+	tagMap := map[string]map[string][]string{}
 	data, err := os.ReadFile(fileName)
 	if err != nil {
 		return tagMap, err
